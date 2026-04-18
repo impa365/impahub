@@ -1,0 +1,134 @@
+## ============================================================================ ##
+## IMPA HUB STACK - Docker Swarm                                              ##
+## ============================================================================ ##
+##                                                                              ##
+##   backhub.seudominio.com  =  Backend API (impa-hub)                          ##
+##   hub.seudominio.com      =  Frontend Manager (impa-hub-manager)             ##  
+##   senha_postgres          =                                                  ##
+##   admin_email             =  admin@impa365.com                               ##
+##   admin_password          =  admin123                                        ##
+##                                                                              ##
+## ============================================================================ ##
+
+version: "3.8"
+
+services:
+
+## --------------------------- IMPA HUB BACKEND --------------------------- ##
+
+  impa_hub:
+    image: impa365/impa-hub:latest
+
+    networks:
+      - rede_interna
+
+    environment:
+      ## ⚙️ Configurações Gerais
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      - BASE_URL=https://backhub.seudominio.com
+      - LOG_LEVEL=info
+      - TZ=America/Sao_Paulo
+
+      ## 🗄️ Banco de Dados (PostgreSQL compartilhado do swarm)
+      - DATABASE_URL=postgres://postgres:senha_postgres@postgres:5432/impa_hub?sslmode=disable
+
+      ## 🔐 JWT / Auth
+      - JWT_SECRET=mude-esta-chave-secreta-em-producao
+      - JWT_EXPIRATION_HOURS=24
+
+      ## 👤 Admin padrão (criado na inicialização)
+      - ADMIN_EMAIL=admin@impa365.com
+      - ADMIN_PASSWORD=admin123
+
+      ## 🌐 CORS
+      - CORS_ORIGINS=https://hub.seudominio.com
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.impa_hub.rule=Host(`backhub.seudominio.com`)
+        - traefik.http.routers.impa_hub.entrypoints=websecure
+        - traefik.http.routers.impa_hub.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.impa_hub.service=impa_hub
+        - traefik.http.services.impa_hub.loadbalancer.server.port=8080
+        - traefik.http.services.impa_hub.loadbalancer.passHostHeader=true
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 3
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+## --------------------------- IMPA HUB MANAGER (Frontend) ---------------- ##
+
+  impa_hub_manager:
+    image: impa365/impa-hub-manager:latest
+
+    networks:
+      - rede_interna
+
+    environment:
+      - TZ=America/Sao_Paulo
+      - VITE_API_URL=https://backhub.seudominio.com/api/v1
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.impa_hub_manager.rule=Host(`hub.seudominio.com`)
+        - traefik.http.routers.impa_hub_manager.entrypoints=websecure
+        - traefik.http.routers.impa_hub_manager.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.impa_hub_manager.service=impa_hub_manager
+        - traefik.http.services.impa_hub_manager.loadbalancer.server.port=80
+        - traefik.http.services.impa_hub_manager.loadbalancer.passHostHeader=true
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 3
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+## --------------------------- NETWORKS ----------------------------------- ##
+
+networks:
+  rede_interna:
+    name: redeInterna
+    external: true
