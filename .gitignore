@@ -1,0 +1,23 @@
+.dockerignore
+
+# Dependências
+node_modules/
+dist/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Build
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Pastas de análise - NÃO fazem parte do projeto
+evolution-api-main-para-analisar-para-implementar-um-serviço-semelhante-usando-a-uazapi/
+evolution-go-apenas-analisar nao alterar nada/
+evolution-go-manager-codigofonte/
+impahub-pro-apenas para analise, nao é pra copiar exatamente como esta aqui apenas analisar para implementar/

@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  impa-hub:
+    build: .
+    container_name: impa_hub
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      - BASE_URL=http://localhost:8080
+      - DATABASE_URL=postgres://impa:impa123@impa-db:5432/impa_hub?sslmode=disable
+      - JWT_SECRET=mude-esta-chave-secreta-em-producao
+      - JWT_EXPIRATION_HOURS=24
+      - ADMIN_EMAIL=admin@impa.hub
+      - ADMIN_PASSWORD=admin123
+      - LOG_LEVEL=info
+      - CORS_ORIGINS=*
+    depends_on:
+      impa-db:
+        condition: service_healthy
+    networks:
+      - impa-network
+
+  impa-db:
+    image: postgres:16-alpine
+    container_name: impa_hub_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: impa
+      POSTGRES_PASSWORD: impa123
+      POSTGRES_DB: impa_hub
+    volumes:
+      - impa_db_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U impa -d impa_hub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - impa-network
+
+  impa-hub-manager:
+    build: ../impa-hub-manager
+    container_name: impa_hub_manager
+    restart: unless-stopped
+    ports:
+      - "5175:80"
+    depends_on:
+      - impa-hub
+    networks:
+      - impa-network
+
+volumes:
+  impa_db_data:
+
+networks:
+  impa-network:
+    driver: bridge
