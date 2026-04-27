@@ -413,7 +413,7 @@ func (c *Client) GetGroupInfo(instanceToken string, groupJID string) (*GroupInfo
 
 	var resp struct {
 		Message string            `json:"message"`
-		Data    GroupInfoResponse  `json:"data"`
+		Data    GroupInfoResponse `json:"data"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("erro ao parsear info do grupo: %w", err)

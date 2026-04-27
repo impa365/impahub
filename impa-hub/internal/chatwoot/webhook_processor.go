@@ -843,12 +843,26 @@ func processChatwootMessage(cfg *models.ChatwootConfig, instanceID uuid.UUID, pa
 						start := strings.Index(bodyStr, "href=") + 6
 						end := strings.Index(bodyStr[start:], "\"")
 						if end > start {
-							directURL = bodyStr[start:end]
+							directURL = bodyStr[start : start+end]
 							log.Printf("[IMPA HUB] DEBUG: URL direta extraída: %s", directURL)
 						}
 					}
 				}
 			}
+
+			// Evolution GO espera tipos simples: image, audio, video, document
+			// Não usar MIME types como image/png - usar apenas "image", "audio", etc.
+			switch mediaType {
+			case "image/jpeg", "image/png", "image/webp", "image/gif":
+				mediaType = "image"
+			case "audio/mpeg", "audio/mp3", "audio/ogg", "audio/ogg; codecs=opus", "audio/webm":
+				mediaType = "audio"
+			case "video/mp4", "video/webm", "video/ogg":
+				mediaType = "video"
+			case "application/pdf", "application/octet-stream":
+				mediaType = "document"
+			}
+			log.Printf("[IMPA HUB] DEBUG: MediaType normalizado para Evolution GO: %s", mediaType)
 
 			log.Printf("[IMPA HUB] DEBUG: Enviando mídia - attachment_id=%d, filename=%s, mediaType=%s, url_length=%d",
 				att.ID, filename, mediaType, len(directURL))

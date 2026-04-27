@@ -91,18 +91,18 @@ type SetSettingsRequest struct {
 }
 
 type SettingsResponse struct {
-	ID                uuid.UUID             `json:"id"`
-	InstanceID        uuid.UUID             `json:"instance_id"`
-	Expire            int                   `json:"expire"`
-	KeywordFinish     string                `json:"keyword_finish"`
-	DelayMessage      int                   `json:"delay_message"`
-	UnknownMessage    string                `json:"unknown_message"`
-	ListeningFromMe   bool                  `json:"listening_from_me"`
-	StopBotFromMe     bool                  `json:"stop_bot_from_me"`
-	KeepOpen          bool                  `json:"keep_open"`
-	DebounceTime      int                   `json:"debounce_time"`
-	TypebotIDFallback *uuid.UUID            `json:"typebot_id_fallback,omitempty"`
-	IgnoreJids        []string              `json:"ignore_jids,omitempty"`
+	ID                uuid.UUID              `json:"id"`
+	InstanceID        uuid.UUID              `json:"instance_id"`
+	Expire            int                    `json:"expire"`
+	KeywordFinish     string                 `json:"keyword_finish"`
+	DelayMessage      int                    `json:"delay_message"`
+	UnknownMessage    string                 `json:"unknown_message"`
+	ListeningFromMe   bool                   `json:"listening_from_me"`
+	StopBotFromMe     bool                   `json:"stop_bot_from_me"`
+	KeepOpen          bool                   `json:"keep_open"`
+	DebounceTime      int                    `json:"debounce_time"`
+	TypebotIDFallback *uuid.UUID             `json:"typebot_id_fallback,omitempty"`
+	IgnoreJids        []string               `json:"ignore_jids,omitempty"`
 	Fallback          *TypebotConfigResponse `json:"fallback,omitempty"`
 }
 
@@ -607,7 +607,7 @@ func toSessionResponse(s *models.TypebotSession) SessionResponse {
 		ID: s.ID, RemoteJID: s.RemoteJID, PushName: s.PushName,
 		SessionID: s.SessionID, Status: string(s.Status), AwaitUser: s.AwaitUser,
 		TypebotConfigID: s.TypebotConfigID,
-		CreatedAt: s.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt: s.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt:       s.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:       s.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }

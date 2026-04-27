@@ -51,11 +51,11 @@ type ContactPayload struct {
 }
 
 type Conversation struct {
-	ID            int    `json:"id"`
-	InboxID       int    `json:"inbox_id"`
-	Status        string `json:"status"`
-	ContactID     int    `json:"contact_id"`
-	AccountID     int    `json:"account_id"`
+	ID        int    `json:"id"`
+	InboxID   int    `json:"inbox_id"`
+	Status    string `json:"status"`
+	ContactID int    `json:"contact_id"`
+	AccountID int    `json:"account_id"`
 }
 
 type ConversationPayload struct {
@@ -93,7 +93,7 @@ type InboxPayload struct {
 }
 
 type InboxChannel struct {
-	Type    string `json:"type"` // "api"
+	Type       string `json:"type"` // "api"
 	WebhookURL string `json:"webhook_url,omitempty"`
 }
 

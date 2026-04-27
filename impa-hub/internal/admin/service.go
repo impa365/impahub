@@ -11,16 +11,16 @@ import (
 )
 
 type CreateUserRequest struct {
-	Name     string         `json:"name" binding:"required"`
-	Email    string         `json:"email" binding:"required,email"`
-	Password string         `json:"password" binding:"required,min=6"`
+	Name     string          `json:"name" binding:"required"`
+	Email    string          `json:"email" binding:"required,email"`
+	Password string          `json:"password" binding:"required,min=6"`
 	Role     models.UserRole `json:"role" binding:"required"`
 }
 
 type UpdateUserRequest struct {
-	Name   *string `json:"name,omitempty"`
-	Email  *string `json:"email,omitempty"`
-	Active *bool   `json:"is_active,omitempty"`
+	Name   *string          `json:"name,omitempty"`
+	Email  *string          `json:"email,omitempty"`
+	Active *bool            `json:"is_active,omitempty"`
 	Role   *models.UserRole `json:"role,omitempty"`
 }
 
@@ -34,20 +34,20 @@ type UpdateQuotasRequest struct {
 }
 
 type UserListResponse struct {
-	ID               uuid.UUID      `json:"id"`
-	Name             string         `json:"name"`
-	Email            string         `json:"email"`
+	ID               uuid.UUID       `json:"id"`
+	Name             string          `json:"name"`
+	Email            string          `json:"email"`
 	Role             models.UserRole `json:"role"`
-	Active           bool           `json:"is_active"`
-	MaxInstances     int            `json:"max_instances"`
-	MaxChatwootConns int            `json:"max_chatwoot_conns"`
-	MaxTypebotConns  int            `json:"max_typebot_conns"`
-	MaxEvoServers    int            `json:"max_evo_servers"`
-	CanUseChatwoot   bool           `json:"can_use_chatwoot"`
-	CanUseTypebot    bool           `json:"can_use_typebot"`
-	InstanceCount    int64          `json:"instance_count"`
-	ServerCount      int64          `json:"server_count"`
-	ChatwootCount    int64          `json:"chatwoot_count"`
+	Active           bool            `json:"is_active"`
+	MaxInstances     int             `json:"max_instances"`
+	MaxChatwootConns int             `json:"max_chatwoot_conns"`
+	MaxTypebotConns  int             `json:"max_typebot_conns"`
+	MaxEvoServers    int             `json:"max_evo_servers"`
+	CanUseChatwoot   bool            `json:"can_use_chatwoot"`
+	CanUseTypebot    bool            `json:"can_use_typebot"`
+	InstanceCount    int64           `json:"instance_count"`
+	ServerCount      int64           `json:"server_count"`
+	ChatwootCount    int64           `json:"chatwoot_count"`
 }
 
 func CreateUser(req CreateUserRequest) (*models.User, error) {

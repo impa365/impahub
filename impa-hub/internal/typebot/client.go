@@ -36,10 +36,10 @@ type ContinueChatRequest struct {
 }
 
 type TypebotResponse struct {
-	SessionID         string              `json:"sessionId"`
-	Messages          []TypebotMessage    `json:"messages"`
-	Input             *TypebotInput       `json:"input,omitempty"`
-	ClientSideActions []ClientSideAction  `json:"clientSideActions,omitempty"`
+	SessionID         string             `json:"sessionId"`
+	Messages          []TypebotMessage   `json:"messages"`
+	Input             *TypebotInput      `json:"input,omitempty"`
+	ClientSideActions []ClientSideAction `json:"clientSideActions,omitempty"`
 }
 
 type TypebotMessage struct {
@@ -81,8 +81,8 @@ type TypebotChoice struct {
 }
 
 type ClientSideAction struct {
-	LastBubbleBlockID string          `json:"lastBubbleBlockId,omitempty"`
-	Wait              *WaitAction     `json:"wait,omitempty"`
+	LastBubbleBlockID string      `json:"lastBubbleBlockId,omitempty"`
+	Wait              *WaitAction `json:"wait,omitempty"`
 }
 
 type WaitAction struct {
