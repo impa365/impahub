@@ -387,7 +387,7 @@ func DeleteChatwootConfig(userID, instanceID uuid.UUID) error {
 // GetConfigByInstanceID retorna a config Chatwoot pelo ID da instância (uso interno)
 func GetConfigByInstanceID(instanceID uuid.UUID) (*models.ChatwootConfig, error) {
 	var cfg models.ChatwootConfig
-	if err := database.DB.Where("instance_id = ? AND enabled = true", instanceID).First(&cfg).Error; err != nil {
+	if err := database.DB.Where("instance_id = ?", instanceID).First(&cfg).Error; err != nil {
 		return nil, err
 	}
 	return &cfg, nil
