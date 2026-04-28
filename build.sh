@@ -1,5 +1,5 @@
 manager=1.0.0
-hub=1.0.1
+hub=1.0.2
 
 # Build manager
 cd /root/impahub/impa-hub-manager
