@@ -1,9 +1,9 @@
-import type { ReactNode, ComponentType } from 'react'
+import { createElement, isValidElement, type ElementType, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from './Button'
 
 interface EmptyStateProps {
-  icon?: ReactNode | ComponentType<{ className?: string }>
+  icon?: ReactNode | ElementType<{ className?: string }>
   title: string
   description?: string
   action?: {
@@ -19,10 +19,13 @@ interface EmptyStateProps {
 export function EmptyState({ icon, title, description, action, actionLabel, onAction, className }: EmptyStateProps) {
   const renderIcon = () => {
     if (!icon) return null
-    if (typeof icon === 'function') {
-      const Icon = icon as ComponentType<{ className?: string }>
-      return <Icon className="h-6 w-6 text-muted-foreground" />
+    if (isValidElement(icon)) return icon
+
+    if (typeof icon === 'function' || (typeof icon === 'object' && icon !== null && '$$typeof' in icon)) {
+      const Icon = icon as ElementType<{ className?: string }>
+      return createElement(Icon, { className: 'h-6 w-6 text-muted-foreground' })
     }
+
     return icon
   }
   return (

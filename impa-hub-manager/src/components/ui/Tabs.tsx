@@ -1,10 +1,10 @@
-import { type ReactNode } from 'react'
+import { createElement, isValidElement, type ElementType, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 interface Tab {
   id: string
   label: string
-  icon?: ReactNode
+  icon?: ReactNode | ElementType<{ className?: string }>
   count?: number
 }
 
@@ -25,6 +25,17 @@ function normalizeTab(tab: TabInput, index: number): Tab {
 
 export function Tabs({ tabs, activeTab, onChange, variant = 'underline', className }: TabsProps) {
   const normalizedTabs = tabs.map(normalizeTab)
+
+  const renderTabIcon = (icon?: ReactNode | ElementType<{ className?: string }>) => {
+    if (!icon) return null
+    if (isValidElement(icon)) return icon
+    if (typeof icon === 'function' || (typeof icon === 'object' && icon !== null && '$$typeof' in icon)) {
+      const Icon = icon as ElementType<{ className?: string }>
+      return createElement(Icon, { className: 'h-4 w-4' })
+    }
+    return icon
+  }
+
   return (
     <div
       className={cn(
@@ -60,7 +71,7 @@ export function Tabs({ tabs, activeTab, onChange, variant = 'underline', classNa
             ),
           )}
         >
-          {tab.icon}
+          {renderTabIcon(tab.icon)}
           {tab.label}
           {tab.count !== undefined && (
             <span className={cn(

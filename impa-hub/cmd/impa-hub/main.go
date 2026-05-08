@@ -68,6 +68,11 @@ func main() {
 	webhook.RegisterRoutes(r)
 	chatwoot.RegisterWebhookRoutes(r)
 
+	// Catch-all OPTIONS para CORS preflight (Gin não executa middleware sem rota registrada)
+	r.OPTIONS("/*path", func(c *gin.Context) {
+		c.AbortWithStatus(204)
+	})
+
 	// Inicia servidor
 	addr := fmt.Sprintf("%s:%s", cfg.ServerHost, cfg.ServerPort)
 	log.Printf("[IMPA HUB] Servidor iniciado em %s", addr)
@@ -97,13 +102,19 @@ func loggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
+		if q := c.Request.URL.RawQuery; q != "" {
+			path = path + "?" + q
+		}
+		clientIP := c.ClientIP()
+		method := c.Request.Method
 
 		c.Next()
 
 		latency := time.Since(start)
 		status := c.Writer.Status()
 
-		log.Printf("[IMPA HUB] %s %s %d %v", c.Request.Method, path, status, latency)
+		log.Printf("[IMPA HUB] %s | %d | %v | %s | %s %s",
+			clientIP, status, latency, method, path, c.Errors.ByType(gin.ErrorTypePrivate).String())
 	}
 }
 

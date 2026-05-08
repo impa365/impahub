@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createElement, isValidElement, useEffect, useRef, useState, type ElementType, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronDown } from 'lucide-react'
 
 interface DropdownItem {
   label: string
-  icon?: ReactNode
+  icon?: ReactNode | ElementType<{ className?: string }>
   onClick: () => void
   variant?: 'default' | 'danger'
   disabled?: boolean
@@ -20,6 +20,16 @@ interface DropdownProps {
 export function Dropdown({ trigger, items, align = 'left', className }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+
+  const renderItemIcon = (icon?: ReactNode | ElementType<{ className?: string }>) => {
+    if (!icon) return null
+    if (isValidElement(icon)) return icon
+    if (typeof icon === 'function' || (typeof icon === 'object' && icon !== null && '$$typeof' in icon)) {
+      const Icon = icon as ElementType<{ className?: string }>
+      return createElement(Icon, { className: 'h-4 w-4' })
+    }
+    return icon
+  }
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -74,7 +84,7 @@ export function Dropdown({ trigger, items, align = 'left', className }: Dropdown
                   item.disabled && 'opacity-40 pointer-events-none'
                 )}
               >
-                {item.icon && <span className="shrink-0 [&>svg]:h-4 [&>svg]:w-4">{item.icon}</span>}
+                {item.icon && <span className="shrink-0">{renderItemIcon(item.icon)}</span>}
                 {item.label}
               </button>
             )
