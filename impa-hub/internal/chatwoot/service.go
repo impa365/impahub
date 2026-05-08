@@ -193,25 +193,25 @@ func SetChatwootConfig(userID uuid.UUID, req SetChatwootRequest) (*ChatwootConfi
 
 	// Atualiza config existente
 	updates := map[string]interface{}{
-		"enabled":              req.Enabled,
-		"url":                  req.URL,
-		"token":                req.Token,
-		"account_id":           req.AccountID,
-		"name_inbox":           req.NameInbox,
-		"sign_msg":             req.SignMsg,
-		"sign_delimiter":       delimiter,
-		"number":               req.Number,
-		"reopen_conversation":  req.ReopenConversation,
-		"conversation_pending": req.ConversationPending,
+		"enabled":               req.Enabled,
+		"url":                   req.URL,
+		"token":                 req.Token,
+		"account_id":            req.AccountID,
+		"name_inbox":            req.NameInbox,
+		"sign_msg":              req.SignMsg,
+		"sign_delimiter":        delimiter,
+		"number":                req.Number,
+		"reopen_conversation":   req.ReopenConversation,
+		"conversation_pending":  req.ConversationPending,
 		"merge_brazil_contacts": req.MergeBrazilContacts,
-		"import_contacts":      req.ImportContacts,
-		"import_messages":      req.ImportMessages,
-		"days_limit_import":    req.DaysLimitImport,
-		"auto_create":          req.AutoCreate,
-		"organization":         req.Organization,
-		"logo":                 req.Logo,
-		"groups_ignore":        req.GroupsIgnore,
-		"ignore_jids":          req.IgnoreJids,
+		"import_contacts":       req.ImportContacts,
+		"import_messages":       req.ImportMessages,
+		"days_limit_import":     req.DaysLimitImport,
+		"auto_create":           req.AutoCreate,
+		"organization":          req.Organization,
+		"logo":                  req.Logo,
+		"groups_ignore":         req.GroupsIgnore,
+		"ignore_jids":           req.IgnoreJids,
 	}
 	if inboxID > 0 {
 		updates["inbox_id"] = inboxID
@@ -387,7 +387,7 @@ func DeleteChatwootConfig(userID, instanceID uuid.UUID) error {
 // GetConfigByInstanceID retorna a config Chatwoot pelo ID da instância (uso interno)
 func GetConfigByInstanceID(instanceID uuid.UUID) (*models.ChatwootConfig, error) {
 	var cfg models.ChatwootConfig
-	if err := database.DB.Where("instance_id = ? AND enabled = true", instanceID).First(&cfg).Error; err != nil {
+	if err := database.DB.Where("instance_id = ?", instanceID).First(&cfg).Error; err != nil {
 		return nil, err
 	}
 	return &cfg, nil

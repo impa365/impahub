@@ -29,7 +29,7 @@ export default function DashboardPage() {
 
         if (isSuperAdmin) {
           const users = await adminApi.listUsers()
-          setUsersCount(users.length)
+          setUsersCount(users?.length ?? 0)
         }
       } catch {
         // silently handle

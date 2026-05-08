@@ -16,14 +16,28 @@ interface EmptyStateProps {
   className?: string
 }
 
+// Helper to check if value is a React element (already rendered JSX)
+const isReactElement = (value: unknown): boolean => {
+  if (typeof value !== 'object' || value === null) return false
+  const el = value as { $$typeof?: symbol; type?: unknown; props?: unknown }
+  return el.$$typeof === Symbol.for('react.element') || 
+    (el.type !== undefined && el.props !== undefined)
+}
+
+// Helper to check if value is a React component (function or forwardRef)
+const isComponent = (value: unknown): value is ComponentType<{ className?: string }> => {
+  return typeof value === 'function' || (typeof value === 'object' && value !== null && 'render' in value)
+}
+
 export function EmptyState({ icon, title, description, action, actionLabel, onAction, className }: EmptyStateProps) {
   const renderIcon = () => {
     if (!icon) return null
-    if (typeof icon === 'function') {
-      const Icon = icon as ComponentType<{ className?: string }>
-      return <Icon className="h-6 w-6 text-muted-foreground" />
+    if (isReactElement(icon)) return icon as ReactNode
+    if (isComponent(icon)) {
+      const IconComponent = icon
+      return <IconComponent className="h-6 w-6 text-muted-foreground" />
     }
-    return icon
+    return icon as ReactNode
   }
   return (
     <div className={cn('flex flex-col items-center justify-center py-16 px-4 text-center', className)}>

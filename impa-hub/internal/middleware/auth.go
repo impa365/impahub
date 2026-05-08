@@ -13,8 +13,8 @@ import (
 )
 
 type Claims struct {
-	UserID uuid.UUID      `json:"userId"`
-	Email  string         `json:"email"`
+	UserID uuid.UUID       `json:"userId"`
+	Email  string          `json:"email"`
 	Role   models.UserRole `json:"role"`
 	jwt.RegisteredClaims
 }

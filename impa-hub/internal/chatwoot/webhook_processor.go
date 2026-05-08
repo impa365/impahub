@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -793,6 +794,8 @@ func processChatwootMessage(cfg *models.ChatwootConfig, instanceID uuid.UUID, pa
 
 	// Processa anexos
 	if len(payload.Attachments) > 0 {
+		log.Printf("[IMPA HUB] DEBUG: Processando %d attachments da mensagem %d", len(payload.Attachments), payload.ID)
+
 		// Assina caption se configurado
 		caption := payload.Content
 		if cfg.SignMsg && payload.Sender.Name != "" && caption != "" {
@@ -807,18 +810,121 @@ func processChatwootMessage(cfg *models.ChatwootConfig, instanceID uuid.UUID, pa
 		if caption != "" {
 			markSentFromChatwoot(cfg.ID, phoneForAntiDup, caption)
 		}
+
+		// Cache para evitar duplicatas no mesmo webhook
+		processedAttachments := make(map[int]bool)
+
 		for _, att := range payload.Attachments {
+			// Verifica se já processou este attachment
+			if processedAttachments[att.ID] {
+				log.Printf("[IMPA HUB] DEBUG: Ignorando attachment duplicado %d", att.ID)
+				continue
+			}
+			processedAttachments[att.ID] = true
 			mediaType := mapFileTypeToMediaType(att.FileType)
-			_, err := evoClient.SendMedia(inst.EvoToken, evoclient.SendMediaRequest{
-				Number:  phoneNumber,
-				URL:     att.DataURL,
-				Type:    mediaType,
-				Caption: caption,
+			filename := extractAttachmentFilename(att)
+			if filename == "" {
+				filename = fmt.Sprintf("attachment_%d", att.ID)
+			}
+
+			// Tenta extrair URL direta do arquivo (sem redirect)
+			directURL := att.DataURL
+			if strings.Contains(att.DataURL, "/redirect/") {
+				// Tenta obter URL real baixando o conteúdo do redirect
+				log.Printf("[IMPA HUB] DEBUG: Tentando extrair URL direta do redirect %s", att.DataURL)
+
+				httpClient := &http.Client{Timeout: 10 * time.Second}
+				resp, err := httpClient.Get(att.DataURL)
+				if err == nil && resp.StatusCode == 200 {
+					defer resp.Body.Close()
+					body, _ := io.ReadAll(resp.Body)
+
+					// Procura pela URL real no conteúdo HTML do redirect
+					bodyStr := string(body)
+					if strings.Contains(bodyStr, "href=") {
+						// Extrai URL do atributo href
+						start := strings.Index(bodyStr, "href=") + 6
+						end := strings.Index(bodyStr[start:], "\"")
+						if end > start {
+							directURL = bodyStr[start : start+end]
+							log.Printf("[IMPA HUB] DEBUG: URL direta extraída: %s", directURL)
+						}
+					}
+				}
+			}
+
+			// Evolution GO espera tipos simples: image, audio, video, document
+			// Não usar MIME types como image/png - usar apenas "image", "audio", etc.
+			switch mediaType {
+			case "image/jpeg", "image/png", "image/webp", "image/gif":
+				mediaType = "image"
+			case "audio/mpeg", "audio/mp3", "audio/ogg", "audio/ogg; codecs=opus", "audio/webm":
+				mediaType = "audio"
+			case "video/mp4", "video/webm", "video/ogg":
+				mediaType = "video"
+			case "application/pdf", "application/octet-stream":
+				mediaType = "document"
+			}
+			log.Printf("[IMPA HUB] DEBUG: MediaType normalizado para Evolution GO: %s", mediaType)
+
+			log.Printf("[IMPA HUB] DEBUG: Enviando mídia - attachment_id=%d, filename=%s, mediaType=%s, url_length=%d",
+				att.ID, filename, mediaType, len(directURL))
+
+			// Envia URL (direta se conseguiu extrair, senão original)
+			resp, err := evoClient.SendMedia(inst.EvoToken, evoclient.SendMediaRequest{
+				Number:   phoneNumber,
+				Type:     mediaType,
+				Caption:  caption,
+				Filename: filename,
+				URL:      directURL,
 			})
+
 			if err != nil {
-				log.Printf("[IMPA HUB] Erro ao enviar mídia para WhatsApp: %v", err)
+				log.Printf("[IMPA HUB] ALERTA: Falha no envio por URL de %s (attachment_id=%d): %v", filename, att.ID, err)
+				log.Printf("[IMPA HUB] DEBUG: Tentando fallback com upload multipart do arquivo")
+
+				fileData, resolvedMime, downloadErr := downloadChatwootAttachment(cfg, att)
+				if downloadErr != nil {
+					log.Printf("[IMPA HUB] ERRO: Falha ao baixar mídia %s para fallback (attachment_id=%d): %v", filename, att.ID, downloadErr)
+					continue
+				}
+
+				uploadResp, uploadErr := evoClient.SendMediaFile(inst.EvoToken, phoneNumber, mediaType, caption, filename, fileData)
+				if uploadErr != nil {
+					log.Printf("[IMPA HUB] ERRO: Falha também no fallback multipart de %s (attachment_id=%d): %v", filename, att.ID, uploadErr)
+					if strings.Contains(uploadErr.Error(), "ffmpeg") {
+						log.Printf("[IMPA HUB] ERRO: Problema de conversão FFmpeg - possivelmente formato não suportado")
+					}
+					if strings.Contains(uploadErr.Error(), "pipe:0") {
+						log.Printf("[IMPA HUB] ERRO: Problema com pipe de dados - arquivo pode estar corrompido")
+					}
+					continue
+				}
+
+				log.Printf("[IMPA HUB] SUCESSO: Mídia enviada via fallback multipart %s (attachment_id=%d, mime=%s, size=%d bytes)", filename, att.ID, resolvedMime, len(fileData))
+				if len(uploadResp) > 0 {
+					var respData map[string]interface{}
+					if json.Unmarshal(uploadResp, &respData) == nil {
+						if msg, ok := respData["message"]; ok {
+							log.Printf("[IMPA HUB] DEBUG: Resposta Evolution GO (fallback): %s", msg)
+						}
+					}
+				}
+			} else {
+				log.Printf("[IMPA HUB] SUCESSO: Mídia enviada %s (attachment_id=%d)", filename, att.ID)
+				// Log da resposta do Evolution GO para análise
+				if len(resp) > 0 {
+					var respData map[string]interface{}
+					if json.Unmarshal(resp, &respData) == nil {
+						if msg, ok := respData["message"]; ok {
+							log.Printf("[IMPA HUB] DEBUG: Resposta Evolution GO: %s", msg)
+						}
+					}
+				}
 			}
 		}
+
+		log.Printf("[IMPA HUB] DEBUG: Finalizado processamento de %d attachments da mensagem %d", len(payload.Attachments), payload.ID)
 		logWebhook(instanceID, "message_created", "outgoing", "success", "")
 		return nil
 	}
@@ -1158,7 +1264,7 @@ func extractMessageContent(msgData EvoMessageData) string {
 	// Poll
 	if poll, ok := msgMap["pollCreationMessage"]; ok {
 		var p struct {
-			Name    string   `json:"name"`
+			Name    string `json:"name"`
 			Options []struct {
 				OptionName string `json:"optionName"`
 			} `json:"options"`
@@ -1300,6 +1406,185 @@ func extractMimeType(msgData EvoMessageData) string {
 	default:
 		return "application/octet-stream"
 	}
+}
+
+// min retorna o menor entre dois inteiros
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// extractMimeTypeFromAttachment extrai o MIME type de um attachment Chatwoot
+func extractMimeTypeFromAttachment(att ChatwootAttachment) string {
+	switch att.FileType {
+	case "image":
+		return "image/jpeg"
+	case "video":
+		return "video/mp4"
+	case "audio":
+		return "audio/mpeg"
+	case "file":
+		return "application/pdf"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// extractAttachmentFilename extrai o nome do arquivo de um attachment Chatwoot
+func extractAttachmentFilename(att ChatwootAttachment) string {
+	// Tenta extrair da URL data_url (geralmente contém o nome do arquivo)
+	if att.DataURL != "" {
+		parts := strings.Split(att.DataURL, "/")
+		if len(parts) > 0 {
+			filename := parts[len(parts)-1]
+			// Remove query parameters se houver
+			if idx := strings.Index(filename, "?"); idx != -1 {
+				filename = filename[:idx]
+			}
+			if filename != "" {
+				return filename
+			}
+		}
+	}
+
+	// Se não conseguiu extrair da URL, gera um nome baseado no tipo e ID
+	extension := ""
+	switch att.FileType {
+	case "image":
+		extension = ".jpg"
+	case "video":
+		extension = ".mp4"
+	case "audio":
+		extension = ".mp3"
+	case "file":
+		extension = ".pdf"
+	default:
+		extension = ".bin"
+	}
+
+	return fmt.Sprintf("attachment_%d%s", att.ID, extension)
+}
+
+// downloadChatwootAttachment baixa o anexo do Chatwoot usando autenticação quando necessário.
+func downloadChatwootAttachment(cfg *models.ChatwootConfig, att ChatwootAttachment) ([]byte, string, error) {
+	attachmentURL := normalizeAttachmentURL(cfg.URL, att.DataURL)
+	if attachmentURL == "" {
+		return nil, "", fmt.Errorf("attachment sem data_url")
+	}
+
+	client := &http.Client{
+		Timeout: 60 * time.Second,
+	}
+
+	req, err := http.NewRequest("GET", attachmentURL, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	req.Header.Set("api_access_token", cfg.Token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return nil, "", fmt.Errorf("status %d ao baixar attachment", resp.StatusCode)
+	}
+
+	// Alguns data_url do Chatwoot retornam HTML de redirect em vez do arquivo.
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(strings.ToLower(contentType), "text/html") {
+		pageData, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, "", err
+		}
+
+		redirectURL := extractRedirectHref(string(pageData))
+		if redirectURL == "" {
+			return nil, "", fmt.Errorf("html de redirect sem href válido")
+		}
+		redirectURL = normalizeAttachmentURL(cfg.URL, redirectURL)
+
+		redirectReq, err := http.NewRequest("GET", redirectURL, nil)
+		if err != nil {
+			return nil, "", err
+		}
+		redirectResp, err := client.Do(redirectReq)
+		if err != nil {
+			return nil, "", err
+		}
+		defer redirectResp.Body.Close()
+
+		if redirectResp.StatusCode >= 400 {
+			return nil, "", fmt.Errorf("status %d ao baixar redirect final", redirectResp.StatusCode)
+		}
+
+		fileData, err := io.ReadAll(redirectResp.Body)
+		if err != nil {
+			return nil, "", err
+		}
+
+		finalMime := redirectResp.Header.Get("Content-Type")
+		if finalMime == "" || finalMime == "application/octet-stream" {
+			finalMime = extractMimeTypeFromAttachment(att)
+		}
+
+		return fileData, finalMime, nil
+	}
+
+	fileData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	mimeType := contentType
+	if mimeType == "" || mimeType == "application/octet-stream" {
+		mimeType = extractMimeTypeFromAttachment(att)
+	}
+
+	return fileData, mimeType, nil
+}
+
+func extractRedirectHref(html string) string {
+	if html == "" {
+		return ""
+	}
+
+	idx := strings.Index(html, "href=\"")
+	if idx == -1 {
+		return ""
+	}
+	start := idx + len("href=\"")
+	end := strings.Index(html[start:], "\"")
+	if end == -1 {
+		return ""
+	}
+
+	return html[start : start+end]
+}
+
+func normalizeAttachmentURL(baseURL, rawAttachmentURL string) string {
+	if rawAttachmentURL == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(rawAttachmentURL)
+	if err != nil {
+		return rawAttachmentURL
+	}
+	if parsed.IsAbs() {
+		return rawAttachmentURL
+	}
+
+	base, err := url.Parse(strings.TrimRight(baseURL, "/") + "/")
+	if err != nil {
+		return rawAttachmentURL
+	}
+
+	return base.ResolveReference(parsed).String()
 }
 
 func extractFilename(msgData EvoMessageData) string {

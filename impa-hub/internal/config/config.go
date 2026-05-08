@@ -8,16 +8,16 @@ import (
 )
 
 type Config struct {
-	ServerPort          string
-	ServerHost          string
-	BaseURL             string
-	DatabaseURL         string
-	JWTSecret           string
-	JWTExpirationHours  int
-	AdminEmail          string
-	AdminPassword       string
-	LogLevel            string
-	CORSOrigins         string
+	ServerPort         string
+	ServerHost         string
+	BaseURL            string
+	DatabaseURL        string
+	JWTSecret          string
+	JWTExpirationHours int
+	AdminEmail         string
+	AdminPassword      string
+	LogLevel           string
+	CORSOrigins        string
 }
 
 var AppConfig *Config
